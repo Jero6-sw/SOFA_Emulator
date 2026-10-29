@@ -99,8 +99,7 @@
         <button id="export" class="ghost" disabled>⬇ Exporter WAV</button>
         <button id="csv" class="ghost" disabled>⬇ CSV (toutes positions)</button>
       </div>
-      <div class="check"><input type="checkbox" id="rot" disabled><label for="rot">Rotation automatique de toutes les sources</label></div>
-      <div class="kbd">Casque recommandé 🎧 · Glissez sur le cercle pour déplacer la source sélectionnée (A/B/C).</div>
+      <div class="kbd">Casque recommandé 🎧 · Glissez sur le cercle pour déplacer la source sélectionnée (A/B/C) · Rotation automatique : case dédiée dans chaque bloc source.</div>
     </div>
     <div class="card" style="margin-top:20px">
       <h2>Notes</h2>
@@ -117,7 +116,7 @@
 <script>
 "use strict";
 /* ================= Version affichée en haut à gauche ================= */
-const VERSION="2.0"; // numéro de version GitHub de SOFA_Emulator
+const VERSION="2.1"; // numéro de version GitHub de SOFA_Emulator (V2.1 : rotation indépendante par source)
 const DATE_VERSION="29/10/2026"; // date de publication de cette version
 document.getElementById("ver").innerHTML=`<b>SOFA_Emulator v${VERSION}</b> · ${DATE_VERSION} · github.com/Jero6-sw/SOFA_Emulator`; // badge fixe en haut à gauche
 
@@ -323,7 +322,8 @@ function h2hex(v){ return f32tof16(v).toString(16).padStart(4,"0"); } // valeur 
 
 /* ================= Application ================= */
 const $=id=>document.getElementById(id); // raccourci d'accès aux éléments du DOM
-let sofa=null, ctx=null, playing=false, rotTimer=null, active=0; // état global : SOFA, contexte audio, lecture en cours, minuteur de rotation, source sélectionnée sur le cercle
+let sofa=null, ctx=null, playing=false, active=0; // état global : SOFA, contexte audio, lecture en cours, source sélectionnée sur le cercle
+const rotTimers=[null,null,null]; // un minuteur de rotation indépendant par source (A, B, C)
 const nodes=[]; // nœuds audio actifs par source : {src, conv, gain}
 const sources=[0,1,2].map(i=>({ab:null, buf:null, name:"", loaded:false})); // les 3 sources : octets bruts, AudioBuffer décodé, nom, chargée ou non
 
@@ -342,7 +342,8 @@ function msg(t,good){ const m=$("msg"); m.textContent=t||""; m.className="msg"+(
     html+=`<label class="row">Élévation <span id="elV${i}">0°</span></label>`; // étiquette + valeur d'élévation
     html+=`<input type="range" id="el${i}" min="-90" max="90" step="1" value="0" disabled>`; // curseur d'élévation
     html+=`<label class="row">Gain <span id="gV${i}">0 dB</span></label>`; // étiquette + valeur de gain
-    html+=`<input type="range" id="gain${i}" min="-24" max="12" step="1" value="0" disabled></div>`; // curseur de gain
+    html+=`<input type="range" id="gain${i}" min="-24" max="12" step="1" value="0" disabled>`; // curseur de gain
+    html+=`<div class="check" style="margin-top:10px"><input type="checkbox" id="rot${i}" disabled><label for="rot${i}">Rotation automatique de cette source (+2°/100 ms)</label></div></div>`; // case de rotation indépendante propre à la source i
   }
   $("srcBlocks").innerHTML=html; // injection des 3 blocs dans la page
 }
@@ -448,7 +449,7 @@ function resampleSinc(a, N, srOut){ // rééchantillonnage par sinc fenêtré (B
 }
 $("srSel").onchange=async ()=>{ // changement de fréquence d'échantillonnage
   stop(); // arrêt de toute lecture en cours
-  if(rotTimer){ clearInterval(rotTimer); rotTimer=null; $("rot").checked=false; } // stoppe la rotation automatique
+  for(let i=0;i<3;i++){ if(rotTimers[i]){ clearInterval(rotTimers[i]); rotTimers[i]=null; $("rot"+i).checked=false; } } // stoppe toutes les rotations automatiques et décoche les cases
   if(ctx){ try{await ctx.close();}catch{} ctx=null; nodes.length=0; } // ferme l'ancien contexte (sa fréquence est figée) et vide les nœuds
   ensureCtx(); // recrée le contexte à la nouvelle fréquence
   $("srV").textContent = (+$("srSel").value ? ($("srSel").value+" Hz") : "auto"); // étiquette du sélecteur
@@ -611,18 +612,19 @@ function stop(){ // arrêt propre de toutes les lectures
   }
   playing=false; $("play").textContent="▶ Lecture"; // état et libellé du bouton
 }
-$("rot").onchange=e=>{ // bascule de rotation automatique (toutes les sources chargées)
-  if(rotTimer){ clearInterval(rotTimer); rotTimer=null; } // stoppe tout minuteur existant
-  if(e.target.checked && sofa){ // si activé (et SOFA chargé)
-    rotTimer=setInterval(()=>{ // toutes les 100 ms :
-      for(let i=0;i<3;i++){ // pour chaque source
-        if(!sources[i].loaded) continue; // source absente : ignorée
-        const v=+$("az"+i).value+2; $("az"+i).value=v>180?v-360:v; // +2° d'azimut avec bouclage à ±180°
-      }
-      sync(); // rafraîchit l'interface (étiquettes, cercle, HRIR à chaud)
-    },100); // période du minuteur
-  }
-};
+/* ---- gestionnaires de rotation indépendante : une case par source A/B/C ---- */
+for(let i=0;i<3;i++){ // pour chaque source (A, B, C)
+  const I=i; // capture de l'indice pour la fermeture
+  $("rot"+I).onchange=e=>{ // bascule de la rotation automatique de cette source
+    if(rotTimers[I]){ clearInterval(rotTimers[I]); rotTimers[I]=null; } // stoppe le minuteur de cette source s'il tournait
+    if(e.target.checked && sofa && sources[I].loaded){ // activation : SOFA + son de cette source chargés
+      rotTimers[I]=setInterval(()=>{ // toutes les 100 ms :
+        const v=+$("az"+I).value+2; $("az"+I).value=v>180?v-360:v; // +2° d'azimut sur cette source uniquement, bouclage à ±180°
+        sync(); // rafraîchit l'interface (étiquettes, cercle, HRIR à chaud)
+      },100); // période du minuteur
+    }
+  };
+}
 
 /* ---- export CSV : tous les coefficients HRIR, valeurs hexadécimales, float32 ou float16 ---- */
 $("csv").onclick=()=>{ // bouton d'export CSV complet
@@ -704,7 +706,8 @@ $("export").onclick=async ()=>{ // bouton d'export du rendu spatialisé
 };
 function refreshButtons(){ // active/désactive les boutons selon l'état
   const ok=sofa && sources.some(s=>s.loaded); // lecture et export WAV : SOFA + au moins une source
-  $("play").disabled=!ok; $("export").disabled=!ok; $("rot").disabled=!sofa; // lecture, WAV, rotation
+  $("play").disabled=!ok; $("export").disabled=!ok; // lecture et export WAV : SOFA + au moins une source
+  for(let i=0;i<3;i++) $("rot"+i).disabled=!(sofa && sources[i].loaded); // chaque case de rotation : SOFA + son de cette source
   $("csv").disabled=!sofa; // l'export CSV ne nécessite que le SOFA
 }
 const _origUpdate=updateStats; // conserve la fonction d'origine
