@@ -1,0 +1,182 @@
+{
+  "test": "Validité ITD / ILD sur la chaîne complète",
+  "passes": 19,
+  "echecs": 0,
+  "tableau": [
+    {
+      "azUI": 90,
+      "itdMicros": 83.333,
+      "ildDb": -6.0206,
+      "attendu": {
+        "itd": 83.333,
+        "ild": -6.0206
+      }
+    },
+    {
+      "azUI": 0,
+      "itdMicros": 0,
+      "ildDb": 0,
+      "attendu": {
+        "itd": 0,
+        "ild": 0
+      }
+    },
+    {
+      "azUI": -90,
+      "itdMicros": -83.333,
+      "ildDb": 6.0206,
+      "attendu": {
+        "itd": -83.333,
+        "ild": 6.0206
+      }
+    },
+    {
+      "azUI": 45,
+      "itdMicros": 13.885,
+      "ildDb": -3.3661,
+      "attendu": {
+        "itd": 13.885,
+        "ild": -3.3661
+      }
+    },
+    {
+      "azUI": -45,
+      "itdMicros": -13.885,
+      "ildDb": 3.3661
+    },
+    {
+      "azUI": 90,
+      "codage": "float16",
+      "itdMicros": 83.333,
+      "ildDb": -6.0206
+    },
+    {
+      "azUI": 90,
+      "methode": "sinc",
+      "itdMicros": 83.334,
+      "ildDb": -6.0204
+    },
+    {
+      "azUI": 90,
+      "methode": "linear",
+      "itdMicros": 77.188,
+      "ildDb": -4.6769
+    }
+  ],
+  "cas": [
+    {
+      "nom": "az 90° : ITD théorique (83.33 µs)",
+      "attendu": 83.33333333333333,
+      "obtenu": 83.33333333333348,
+      "ok": true
+    },
+    {
+      "nom": "az 90° : ILD théorique (-6.02 dB)",
+      "attendu": -6.020599913279624,
+      "obtenu": -6.020599913279624,
+      "ok": true
+    },
+    {
+      "nom": "az 0° : ITD théorique (0.00 µs)",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "az 0° : ILD théorique (0.00 dB)",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "az -90° : ITD théorique (-83.33 µs)",
+      "attendu": -83.33333333333333,
+      "obtenu": -83.33333333333348,
+      "ok": true
+    },
+    {
+      "nom": "az -90° : ILD théorique (6.02 dB)",
+      "attendu": 6.020599913279624,
+      "obtenu": 6.020599913279624,
+      "ok": true
+    },
+    {
+      "nom": "az 45° interp : ITD = centroïde énergétique théorique du mélange (±2 µs)",
+      "attendu": 13.88507510902041,
+      "obtenu": 13.885075109020397,
+      "ok": true
+    },
+    {
+      "nom": "az 45° interp : ILD = énergies théoriques du mélange (±0,2 dB)",
+      "attendu": -3.3660596953484623,
+      "obtenu": -3.366059695348462,
+      "ok": true
+    },
+    {
+      "nom": "az 45° interp : ITD ≥ 0 (source à droite → gauche en retard)",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "az −45° interp : ITD ≈ opposé de +45°",
+      "attendu": -13.885075109020397,
+      "obtenu": -13.885075109020397,
+      "ok": true
+    },
+    {
+      "nom": "az −45° interp : ILD ≈ opposé de +45°",
+      "attendu": 3.366059695348462,
+      "obtenu": 3.3660596953484623,
+      "ok": true
+    },
+    {
+      "nom": "az 90° float16 : ITD inchangé (±0,5 µs)",
+      "attendu": 83.33333333333348,
+      "obtenu": 83.33333333333337,
+      "ok": true
+    },
+    {
+      "nom": "az 90° float16 : ILD inchangé (±0,01 dB)",
+      "attendu": -6.020599913279624,
+      "obtenu": -6.020599913279624,
+      "ok": true
+    },
+    {
+      "nom": "az 90° rééchant. sinc : ITD préservé (±1 µs)",
+      "attendu": 83.33333333333333,
+      "obtenu": 83.33352798706,
+      "ok": true
+    },
+    {
+      "nom": "az 90° rééchant. sinc : ILD préservé (±0,1 dB)",
+      "attendu": -6.020599913279624,
+      "obtenu": -6.020443177409219,
+      "ok": true
+    },
+    {
+      "nom": "az 90° rééchant. linear : ITD préservé (±8 µs, biais documenté sur Dirac)",
+      "attendu": 83.33333333333333,
+      "obtenu": 77.1876350122466,
+      "ok": true
+    },
+    {
+      "nom": "az 90° rééchant. linear : ILD dérive limitée (±1,5 dB)",
+      "attendu": -6.020599913279624,
+      "obtenu": -4.676896203419542,
+      "ok": true
+    },
+    {
+      "nom": "flip à +90° : ITD inversé (≈ −83,33 µs)",
+      "attendu": -83.33333333333333,
+      "obtenu": -83.33333333333348,
+      "ok": true
+    },
+    {
+      "nom": "flip à +90° : ILD inversé (≈ +6,02 dB)",
+      "attendu": 6.020599913279624,
+      "obtenu": 6.020599913279624,
+      "ok": true
+    }
+  ]
+}

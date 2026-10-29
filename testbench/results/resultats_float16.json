@@ -1,0 +1,237 @@
+{
+  "test": "Codage float16 / float32 IEEE-754",
+  "passes": 37,
+  "echecs": 0,
+  "mesures": {
+    "errRelativeMax": 0.0004540546518361438,
+    "errEnergieDb": 0.0005022939758753688,
+    "itd32Micros": 83.23569441824424,
+    "itd16Micros": 83.23571051048636,
+    "ild32Db": -6.020979339165317,
+    "ild16Db": -6.020979278095341
+  },
+  "cas": [
+    {
+      "nom": "f32tof16(1) bits",
+      "attendu": 15360,
+      "obtenu": 15360,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(1)",
+      "attendu": "3c00",
+      "obtenu": "3c00",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 1)",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(2) bits",
+      "attendu": 16384,
+      "obtenu": 16384,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(2)",
+      "attendu": "4000",
+      "obtenu": "4000",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 2)",
+      "attendu": 2,
+      "obtenu": 2,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(0.5) bits",
+      "attendu": 14336,
+      "obtenu": 14336,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(0.5)",
+      "attendu": "3800",
+      "obtenu": "3800",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 0.5)",
+      "attendu": 0.5,
+      "obtenu": 0.5,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(-2) bits",
+      "attendu": 49152,
+      "obtenu": 49152,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(-2)",
+      "attendu": "c000",
+      "obtenu": "c000",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour -2)",
+      "attendu": -2,
+      "obtenu": -2,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(65504) bits",
+      "attendu": 31743,
+      "obtenu": 31743,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(65504)",
+      "attendu": "7bff",
+      "obtenu": "7bff",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 65504)",
+      "attendu": 65504,
+      "obtenu": 65504,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(-65504) bits",
+      "attendu": 64511,
+      "obtenu": 64511,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(-65504)",
+      "attendu": "fbff",
+      "obtenu": "fbff",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour -65504)",
+      "attendu": -65504,
+      "obtenu": -65504,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(0.00006103515625) bits",
+      "attendu": 1024,
+      "obtenu": 1024,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(0.00006103515625)",
+      "attendu": "0400",
+      "obtenu": "0400",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 0.00006103515625)",
+      "attendu": 0.00006103515625,
+      "obtenu": 0.00006103515625,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(5.960464477539063e-8) bits",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(5.960464477539063e-8)",
+      "attendu": "0001",
+      "obtenu": "0001",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 5.960464477539063e-8)",
+      "attendu": 5.960464477539063e-8,
+      "obtenu": 5.960464477539063e-8,
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(1000000000) bits",
+      "attendu": 31744,
+      "obtenu": 31744,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(1000000000)",
+      "attendu": "7c00",
+      "obtenu": "7c00",
+      "ok": true
+    },
+    {
+      "nom": "f32tof16(0) bits",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "h2hex(0)",
+      "attendu": "0000",
+      "obtenu": "0000",
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(aller-retour 0)",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "f16tof32(débordement 1e9) = +infini",
+      "attendu": true,
+      "obtenu": true,
+      "ok": true
+    },
+    {
+      "nom": "f2hex(1.0) = 3f800000",
+      "attendu": "3f800000",
+      "obtenu": "3f800000",
+      "ok": true
+    },
+    {
+      "nom": "f2hex(-2.0) = c0000000",
+      "attendu": "c0000000",
+      "obtenu": "c0000000",
+      "ok": true
+    },
+    {
+      "nom": "f2hex(0.5) = 3f000000",
+      "attendu": "3f000000",
+      "obtenu": "3f000000",
+      "ok": true
+    },
+    {
+      "nom": "float16 : erreur relative maximale ≤ 2^-10 (0,098 %)",
+      "attendu": 0,
+      "obtenu": 0.0004540546518361438,
+      "ok": true
+    },
+    {
+      "nom": "float16 : dérive d'énergie canal gauche ≤ 0,01 dB",
+      "attendu": 0,
+      "obtenu": 0.0005022939758753688,
+      "ok": true
+    },
+    {
+      "nom": "float16 : ITD inchangé (±0,5 µs)",
+      "attendu": 83.23569441824424,
+      "obtenu": 83.23571051048636,
+      "ok": true
+    },
+    {
+      "nom": "float16 : ILD inchangé (±0,01 dB)",
+      "attendu": -6.020979339165317,
+      "obtenu": -6.020979278095341,
+      "ok": true
+    }
+  ]
+}

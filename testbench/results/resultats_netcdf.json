@@ -1,0 +1,199 @@
+{
+  "test": "Non-régression NetCDF-3 / extraction SOFA",
+  "passes": 32,
+  "echecs": 0,
+  "cas": [
+    {
+      "nom": "classic v1 · fréquence d'échantillonnage",
+      "attendu": 48000,
+      "obtenu": 48000,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · nombre de positions M",
+      "attendu": 3,
+      "obtenu": 3,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · nombre d'oreilles R",
+      "attendu": 2,
+      "obtenu": 2,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · longueur des HRIR N",
+      "attendu": 64,
+      "obtenu": 64,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · oreille 1 = gauche (earSwap)",
+      "attendu": false,
+      "obtenu": false,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · azimut SOFA mesure 0",
+      "attendu": -90,
+      "obtenu": -90,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · élévation SOFA mesure 0",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · azimut SOFA mesure 1",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · élévation SOFA mesure 1",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · azimut SOFA mesure 2",
+      "attendu": 90,
+      "obtenu": 90,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · élévation SOFA mesure 2",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · valeurs Data.IR exactes (384 valeurs)",
+      "attendu": true,
+      "obtenu": true,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · vecteur unitaire m0 (y=droite=1)",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · vecteur unitaire m0 (x=avant=0)",
+      "attendu": 0,
+      "obtenu": 6.123233995736766e-17,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · distance angulaire cible m0 = 0",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "classic v1 · distance angulaire m0→m1 = 90°",
+      "attendu": 1.5707963267948966,
+      "obtenu": 1.5707963267948966,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · fréquence d'échantillonnage",
+      "attendu": 48000,
+      "obtenu": 48000,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · nombre de positions M",
+      "attendu": 3,
+      "obtenu": 3,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · nombre d'oreilles R",
+      "attendu": 2,
+      "obtenu": 2,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · longueur des HRIR N",
+      "attendu": 64,
+      "obtenu": 64,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · oreille 1 = gauche (earSwap)",
+      "attendu": false,
+      "obtenu": false,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · azimut SOFA mesure 0",
+      "attendu": -90,
+      "obtenu": -90,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · élévation SOFA mesure 0",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · azimut SOFA mesure 1",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · élévation SOFA mesure 1",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · azimut SOFA mesure 2",
+      "attendu": 90,
+      "obtenu": 90,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · élévation SOFA mesure 2",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · valeurs Data.IR exactes (384 valeurs)",
+      "attendu": true,
+      "obtenu": true,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · vecteur unitaire m0 (y=droite=1)",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · vecteur unitaire m0 (x=avant=0)",
+      "attendu": 0,
+      "obtenu": 6.123233995736766e-17,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · distance angulaire cible m0 = 0",
+      "attendu": 0,
+      "obtenu": 0,
+      "ok": true
+    },
+    {
+      "nom": "64-bit offset v2 · distance angulaire m0→m1 = 90°",
+      "attendu": 1.5707963267948966,
+      "obtenu": 1.5707963267948966,
+      "ok": true
+    }
+  ]
+}

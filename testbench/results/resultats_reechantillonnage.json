@@ -1,0 +1,120 @@
+{
+  "test": "Rééchantillonnage sinc vs linéaire (48 kHz → 44,1 kHz)",
+  "passes": 14,
+  "echecs": 0,
+  "mesures": {
+    "fid1kHz": {
+      "sinc": 0.9999942308714586,
+      "lineaire": 0.9988321724182531
+    },
+    "fid5kHz": {
+      "sinc": 0.999924215469721,
+      "lineaire": 0.9647601389844987
+    },
+    "transition10kHz": {
+      "sinc": 0.4566364900802923,
+      "lineaire": 0.8677121958186381
+    },
+    "alias25kHz": {
+      "attenuationSincDb": 105.34029687226968,
+      "attenuationLineaireDb": 4.733103599158017
+    },
+    "itdild_sinc": {
+      "itdMicros": 83.33352798706011,
+      "ildDb": -6.02044317740922
+    },
+    "itdild_lineaire": {
+      "itdMicros": 77.1876350122466,
+      "ildDb": -4.676896203419542
+    }
+  },
+  "cas": [
+    {
+      "nom": "sinc : amplitude 1 kHz fidèle (±0,05)",
+      "attendu": 1,
+      "obtenu": 0.9999942308714586,
+      "ok": true
+    },
+    {
+      "nom": "linéaire : amplitude 1 kHz fidèle (±0,05)",
+      "attendu": 1,
+      "obtenu": 0.9988321724182531,
+      "ok": true
+    },
+    {
+      "nom": "sinc : amplitude 5 kHz fidèle (±0,1)",
+      "attendu": 1,
+      "obtenu": 0.999924215469721,
+      "ok": true
+    },
+    {
+      "nom": "linéaire : atténuation attendue à 5 kHz (réf −0,58 dB, ±0,15)",
+      "attendu": 0.935,
+      "obtenu": 0.9647601389844987,
+      "ok": true
+    },
+    {
+      "nom": "constat : 10 kHz dans la bande de transition du sinc (coupure à 9,92 kHz)",
+      "attendu": "mesure",
+      "obtenu": {
+        "sinc": 0.4566364900802923,
+        "lineaire": 0.8677121958186381
+      },
+      "ok": true
+    },
+    {
+      "nom": "sinc : alias 25 kHz atténué d'au moins 50 dB",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "linéaire : alias 25 kHz mal atténué (moins de 25 dB)",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "sinc rejette l'alias mieux que le linéaire",
+      "attendu": 1,
+      "obtenu": 1,
+      "ok": true
+    },
+    {
+      "nom": "ITD mesuré à 48 kHz = +4 échantillons (83,33 µs)",
+      "attendu": 83.333,
+      "obtenu": 83.33333333333337,
+      "ok": true
+    },
+    {
+      "nom": "ILD mesuré à 48 kHz = −6,02 dB",
+      "attendu": -6.020599913279624,
+      "obtenu": -6.020599913279624,
+      "ok": true
+    },
+    {
+      "nom": "sinc : ITD préservé à 44,1 kHz (±1 µs)",
+      "attendu": 83.33333333333337,
+      "obtenu": 83.33352798706011,
+      "ok": true
+    },
+    {
+      "nom": "sinc : ILD préservé à 44,1 kHz (±0,1 dB)",
+      "attendu": -6.020599913279624,
+      "obtenu": -6.02044317740922,
+      "ok": true
+    },
+    {
+      "nom": "lineaire : ITD préservé à 44,1 kHz (±8 µs, biais documenté sur Dirac)",
+      "attendu": 83.33333333333337,
+      "obtenu": 77.1876350122466,
+      "ok": true
+    },
+    {
+      "nom": "lineaire : ILD dérive limitée (±1,5 dB, artifact documenté sur Dirac)",
+      "attendu": -6.020599913279624,
+      "obtenu": -4.676896203419542,
+      "ok": true
+    }
+  ]
+}
