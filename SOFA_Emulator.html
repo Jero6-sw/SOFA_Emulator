@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Spatialiseur binaural SOFA</title>
+<style>
+  :root{
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color:#e8ecf1; background:#10141c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;max-width:980px;margin-inline:auto}
+  h1{font-size:22px;margin:0 0 4px}
+  h1 span{color:#6ea8ff}
+  p.sub{margin:0 0 20px;color:#93a1b5;font-size:14px}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:20px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:#171d29;border:1px solid #232c3d;border-radius:12px;padding:16px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#93a1b5;margin:0 0 12px}
+  .drop{border:1.5px dashed #3a4666;border-radius:10px;padding:18px 12px;text-align:center;color:#93a1b5;font-size:13px;cursor:pointer;transition:.15s}
+  .drop:hover,.drop.over{border-color:#6ea8ff;color:#cfe0ff;background:#1b2334}
+  .drop.ok{border-style:solid;border-color:#3fae6e;color:#a5e8c3}
+  .drop b{color:#e8ecf1;display:block;font-size:13px;margin-top:4px;word-break:break-all}
+  label.row{display:flex;justify-content:space-between;font-size:13px;margin:14px 0 4px;color:#c4cede}
+  input[type=range]{width:100%}
+  button{background:#2b4bd8;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px;width:100%}
+  button:disabled{background:#2a3348;color:#67748c;cursor:not-allowed}
+  button.ghost{background:#232c3d;color:#c4cede;font-weight:500}
+  .msg{margin-top:10px;font-size:12px;color:#f0b8a8;min-height:16px}
+  .msg.good{color:#8fd8a8}
+  canvas#pad{width:100%;background:#131a26;border:1px solid #232c3d;border-radius:10px;display:block;touch-action:none}
+  .stats{font-size:12px;color:#93a1b5;margin-top:10px;line-height:1.6}
+  .check{display:flex;gap:8px;align-items:center;font-size:13px;margin-top:12px;color:#c4cede}
+  select,input[type=number]{background:#131a26;color:#e8ecf1;border:1px solid #3a4666;border-radius:6px;padding:6px;font-size:13px;width:100%}
+  .kbd{font-size:11px;color:#67748c;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>🎧 Spatialiseur binaural <span>.sofa</span></h1>
+<p class="sub">Chargez un fichier SOFA (SimpleFreeFieldHRIR, AES69) et un son mono&nbsp;: le rendu 3D se fait entièrement dans votre navigateur — aucun envoi de données.</p>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <h2>1 · Fichiers</h2>
+      <div class="drop" id="dropSofa">Déposer / choisir un fichier <b>.sofa</b></div>
+      <div class="drop" id="dropAudio" style="margin-top:10px">Déposer / choisir un son <b>mono</b> (wav, mp3, flac…)</div>
+      <input type="file" id="fileSofa" accept=".sofa" hidden>
+      <input type="file" id="fileAudio" accept="audio/*" hidden>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2>2 · Position de la source</h2>
+      <canvas id="pad" width="600" height="600"></canvas>
+      <label class="row">Azimut <span id="azV">0°</span></label>
+      <input type="range" id="az" min="-180" max="180" step="1" value="0" disabled>
+      <label class="row">Élévation <span id="elV">0°</span></label>
+      <input type="range" id="el" min="-90" max="90" step="1" value="0" disabled>
+      <div class="check"><input type="checkbox" id="interp" checked><label for="interp">Interpoler entre les 3 HRIR les plus proches</label></div>
+      <div class="check"><input type="checkbox" id="flip"><label for="flip">Inverser gauche/droite (si le fichier suit l'azimut horaire)</label></div>
+      <label class="row" style="margin-top:14px">Gain <span id="gV">0 dB</span></label>
+      <input type="range" id="gain" min="-24" max="12" step="1" value="0" disabled>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>3 · Rendu</h2>
+      <div class="stats" id="stats">En attente des fichiers…</div>
+      <label class="row" style="margin-top:14px">Fréquence d'échantillonnage <span id="srV">auto</span></label>
+      <select id="srSel">
+        <option value="0" selected>Auto (celle du fichier SOFA)</option>
+        <option value="32000">32 000 Hz</option>
+        <option value="44100">44 100 Hz</option>
+        <option value="48000">48 000 Hz</option>
+        <option value="96000">96 000 Hz</option>
+      </select>
+      <label class="row" style="margin-top:14px">Rééchantillonnage <span id="rsqV">sinc fenêtré</span></label>
+      <select id="rsq">
+        <option value="sinc" selected>Sinc fenêtré (haute qualité)</option>
+        <option value="linear">Linéaire (rapide)</option>
+      </select>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button id="play" disabled>▶ Lecture</button>
+        <button id="export" class="ghost" disabled>⬇ Exporter WAV</button>
+        <button id="csv" class="ghost" disabled>⬇ CSV (toutes positions)</button>
+      </div>
+      <div class="check"><input type="checkbox" id="rot" disabled><label for="rot">Rotation automatique de la source</label></div>
+      <div class="kbd">Casque recommandé 🎧 · Glissez sur le cercle pour déplacer la source.</div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>Notes</h2>
+      <div class="stats" style="margin:0">
+        · Fichiers SOFA <b>NetCDF-3</b> (classic / 64-bit offset), le format standard des jeux HRTF publics (ARI, MIT-KEMAR, SADIE, RIEC, LISTEN…).<br>
+        · Fichiers HDF5/NetCDF-4 non lus&nbsp;: convertissez avec <code>scipy.io.netcdf</code> ou <code>netCDF4</code> (<code>sofa → netcdf3</code>).<br>
+        · Le son est mixé en mono, filtré par les HRIR gauche/droite (convolution), puis normalisé en énergie.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ================= Lecteur NetCDF-3 (conteneur SOFA, gros-boutiste) ================= */
+const NC_TYPES = {1:1,2:1,3:2,4:4,5:4,6:8}; // taille en octets de chaque type NetCDF (byte, char, short, int, float, double)
+function readNetCDF3(buf){
+  const dv = new DataView(buf); // vue gros-boutiste sur l'octet-blob du fichier
+  const dec = new TextDecoder("ascii"); // décodeur pour les noms et attributs texte
+  const magic = dec.decode(new Uint8Array(buf,0,3)); // lecture de la signature d'en-tête (3 premiers octets)
+  if(magic !== "CDF") { // si ce n'est pas du NetCDF-3…
+    const h5 = new Uint8Array(buf,0,8); // …on regarde si c'est du HDF5 (NetCDF-4)
+    if(h5[0]===0x89 && dec.decode(h5.slice(1,4))==="HDF") // signature HDF5 : 0x89 "HDF"
+      throw new Error("Fichier SOFA au format HDF5/NetCDF-4 : convertissez-le en NetCDF-3 avec « nccopy -k 64-bit-offset in.sofa out.sofa » (ou netCDF4/MATLAB — voir Notes).");
+    throw new Error("En-tête NetCDF invalide (CDF\\x01/\\x02 attendu)."); // sinon : format inconnu
+  }
+  const ver = dv.getUint8(3); // octet de version : 1 = classic, 2 = 64-bit offset
+  let p = 4; // curseur de lecture, juste après l'en-tête magique de 4 octets
+  const u32 = ()=>dv.getUint32(p), i32 = ()=>dv.getInt32(p); // lectures 32 bits sans avancer le curseur
+  const numRecs = i32(); p += 4; // nombre d'enregistrements (dimension illimitée)
+  function name(){ // lit un nom NetCDF : longueur (int) + caractères + alignement sur 4 octets
+    const n=i32(); p+=4; // longueur de la chaîne
+    const s=dec.decode(new Uint8Array(buf,p,n)); // lecture des n caractères
+    p+=Math.ceil(n/4)*4; // avance en arrondissant au multiple de 4 supérieur (padding XDR)
+    return s; // retourne le nom
+  }
+  function attrs(){ // lit une liste d'attributs : tag + compteur, puis paires nom/type/valeurs
+    const t=i32(); p+=4; // tag : 12 = NC_ATTRIBUTE, 0 = ABSENT
+    const n=i32(); p+=4; // nombre d'attributs (0 si liste absente)
+    const o={}; // objet résultat : nom → valeur texte
+    if(t!==0){ // si la liste existe bien
+      for(let i=0;i<n;i++){ // pour chaque attribut
+        const nm=name(); // nom de l'attribut
+        const ty=i32(); p+=4; // type des valeurs (1=byte, 2=char, 5=float, 6=double…)
+        const ne=i32(); p+=4; // nombre de valeurs
+        const nb=NC_TYPES[ty]*ne; // taille totale en octets des valeurs
+        const raw=new Uint8Array(buf,p,nb); // extraction brute des octets de valeur
+        p+=Math.ceil(nb/4)*4; // avance avec alignement sur 4 octets
+        o[nm]=String.fromCharCode(...raw).replace(/\0+$/,""); // conversion en chaîne, zéros finaux supprimés
+      }
+    }
+    return o; // attributs de la section parcourue
+  }
+  const dimTag = i32(); p+=4; // tag de la liste des dimensions (10 = NC_DIMENSION, 0 = absente)
+  const nd=i32(); p+=4; // nombre de dimensions
+  let dimNames=[], dimLens=[]; // noms et longueurs des dimensions
+  if(dimTag!==0){ // si la liste des dimensions existe
+    for(let i=0;i<nd;i++){ dimNames.push(name()); dimLens.push(i32()); p+=4; } // chaque dimension : nom + longueur (0 = dimension illimitée/record)
+  }
+  attrs(); // attributs globaux du fichier (non utilisés, mais il faut consommer les octets)
+  const vt = i32(); p+=4; // tag de la liste des variables (11 = NC_VARIABLE, 0 = absente)
+  const nv=i32(); p+=4; // nombre de variables
+  let vars=[]; // descriptions des variables
+  if(vt!==0){ // si la liste des variables existe
+    for(let i=0;i<nv;i++){ // pour chaque variable
+      const nm=name(); // nom de la variable (ex. "Data.IR")
+      const nd=i32(); p+=4; // nombre de dimensions de la variable
+      const ids=[]; // identifiants des dimensions
+      for(let d=0;d<nd;d++){ ids.push(i32()); p+=4; } // lecture de chaque identifiant de dimension
+      attrs(); // attributs propres à la variable (consommés, non utilisés)
+      const ty=i32(); p+=4; // type des données de la variable
+      const vsize=i32(); p+=4; // taille "vsize" du bloc de données (alignée sur 4 octets)
+      const begin = ver===2 ? dv.getUint32(p)*4294967296 + dv.getUint32(p+4) : dv.getUint32(p); // offset de début des données : 8 octets (mot fort puis mot faible) en v2, 4 octets en v1
+      p += ver===2?8:4; // avance le curseur selon la version du format
+      vars.push({name:nm, type:ty, ids, vsize, begin, isRec:ids.some(id=>dimLens[id]===0)}); // mémorise la variable et si elle dépend de la dimension record
+    }
+  }
+  const recVars = vars.filter(v=>v.isRec); // variables stockées dans la zone d'enregistrements
+  const recSize = recVars.reduce((a,v)=>a+v.vsize,0); // taille totale d'un enregistrement (somme des vsize des variables record)
+  const numRecDims = numRecs; // nombre d'enregistrements (alias lisible)
+  function readVar(v){ // lit une variable complète et renvoie {dims, data}
+    const dims = v.ids.map(id=>({name:dimNames[id], len:dimLens[id]===0?numRecDims:dimLens[id]})); // dimensions effectives (dimension illimitée remplacée par le nombre d'enregistrements)
+    let n=1; dims.forEach(d=>n*=d.len); // nombre total d'éléments = produit des dimensions
+    if(v.isRec){ // cas d'une variable "record" : les données sont entrelacées enregistrement par enregistrement
+      const out = new Float64Array(n); // tampon de sortie en double précision
+      const perRec = n/numRecDims; // éléments appartenant à un enregistrement donné
+      for(let r=0;r<numRecDims;r++){ // pour chaque enregistrement
+        readInto(out, r*perRec, perRec, v.begin + r*recSize, v.type, v.name); // lecture de la tranche de cet enregistrement (v.begin pointe déjà sur la 1re occurrence)
+      }
+      return {dims, data:out, rec:true}; // variable record lue
+    }
+    const out = new Float64Array(n); // cas standard : les données sont d'un seul bloc contigu
+    readInto(out, 0, n, v.begin, v.type, v.name); // lecture du bloc complet
+    return {dims, data:out}; // variable lue
+  }
+  function readInto(out, off, cnt, off0, ty, vname){ // écrit cnt éléments de type ty lus à l'offset off0 dans out à partir de l'indice off
+    for(let i=0;i<cnt;i++){ // pour chaque élément à lire
+      const q=off0+i*NC_TYPES[ty]; // offset octet du i-ème élément
+      if(q+NC_TYPES[ty]>buf.byteLength) throw new Error("Données tronquées dans « "+vname+" » (offset "+q+" > "+buf.byteLength+")."); // garde-fou : ne jamais lire au-delà du fichier
+      out[off+i] = ty===5?dv.getFloat32(q): ty===6?dv.getFloat64(q): ty===4?dv.getInt32(q): ty===1?dv.getInt8(q): dv.getInt16(q); // conversion selon le type NetCDF
+    }
+  }
+  return {vars:()=>{ // API : renvoie un objet {nom → variable lue} (lecture paresseuse)
+    const o={}; // dictionnaire résultat
+    vars.forEach(v=>o[v.name]=readVar(v)); // décode chaque variable
+    return o; // toutes les variables du fichier
+  }};
+}
+
+/* ================= Extraction SOFA ================= */
+function deg2rad(d){ return d*Math.PI/180; } // conversion degrés → radians
+function sphToUnit(az,el){ // convertit (azimut, élévation) en vecteur unitaire ; az : convention UI horaire depuis l'avant (+90° = droite), el positif = haut
+  const elR=deg2rad(el), azR=deg2rad(az); // angles en radians
+  return [Math.cos(elR)*Math.cos(azR), Math.cos(elR)*Math.sin(azR), Math.sin(elR)]; // (x=avant, y=droite, z=haut)
+}
+function parseSofa(buf){ // transforme l'octet-blob d'un fichier SOFA en objet exploitable {sr, M, N, R, units, hrir…}
+  const file = readNetCDF3(buf); // parse le conteneur NetCDF-3
+  const V = file.vars(); // décode toutes les variables
+  const irVar = V["Data.IR"] || V["Data.Real"]; // les réponses impulsionnelles : Data.IR en SOFA 2.x, Data.Real en SOFA 1.0
+  if(!irVar || !V["SourcePosition"]){ // si l'une des variables requises manque
+    const dims = Object.entries(V).map(([k,v])=>`${k}(${v.dims.map(d=>d.len).join("×")})`).join(" · ") || "(rien)"; // liste les variables trouvées pour le diagnostic
+    throw new Error("Data.IR/Data.Real ou SourcePosition absentes. Variables lues : "+dims+"."); // message d'erreur détaillé
+  }
+  const srVar = V["Data.SamplingRate"]; // fréquence d'échantillonnage des mesures
+  const sr = srVar.data[0]; // valeur scalaire en Hz
+  const M = V["SourcePosition"].dims[0].len; // nombre de positions mesurées (dimension M)
+  const C = V["SourcePosition"].dims[1].len; // nombre de coordonnées par position (3)
+  const sp = V["SourcePosition"].data; // tableau plat (azimut, élévation, rayon) × M
+  let azMin=1e9, azMax=-1e9, elMin=1e9, elMax=-1e9; // bornes de la grille de mesures (pour l'affichage)
+  const units=[], azs=[], els=[]; // vecteurs unitaires, azimuts et élévations de chaque mesure
+  for(let m=0;m<M;m++){ // pour chaque position mesurée
+    const a=sp[m*C], b=sp[m*C+1]; // azimut et élévation SOFA de la mesure m
+    azs.push(a); els.push(b); // mémorisation brute (pour l'export CSV)
+    azMin=Math.min(azMin,a); azMax=Math.max(azMax,a); // mise à jour des bornes d'azimut
+    elMin=Math.min(elMin,b); elMax=Math.max(elMax,b); // mise à jour des bornes d'élévation
+    units.push(sphToUnit(-a,b)); // vecteur unitaire en convention UI (SOFA est antihoraire → on négatif l'azimut)
+  }
+  const dr=irVar; // variable de données IR
+  const [dm,dR,dN]=dr.dims.map(d=>d.len); // dimensions M × R × N (mesures × oreilles × échantillons)
+  const N=dN, R=dR; // aliases lisibles
+  let earSwap=false; // vrai si le fichier stocke l'oreille droite en récepteur 1
+  const rpVar=V["ReceiverPosition"]; // positions des récepteurs (oreilles)
+  if(rpVar && R===2){ // si disponible et fichier binaural
+    const rc=rpVar.dims.map(d=>d.len); // dimensions de ReceiverPosition : (R,C,E) ou (R,C)
+    const cc=rc.includes(3)?3:rc[rc.length-1]; // nombre de coordonnées par récepteur
+    const y0=rpVar.data[1], y1=rpVar.data[cc+1]; // composante y (SOFA : y>0 = gauche) de chaque récepteur
+    if(y1>y0) earSwap=true; // le récepteur 2 est plus à gauche → le récepteur 1 est l'oreille droite → il faudra inverser
+  }
+  if(R<2) throw new Error("HRIR non binaural (R<2)."); // un fichier mono n'est pas spatialisable en binaural
+  return {sr, M, N, R, units, azs, els, hrir:dr.data, azMin, azMax, elMin, elMax, earSwap}; // objet SOFA prêt à l'emploi
+}
+function angularDist(u,v){ // distance angulaire (grand cercle) entre deux vecteurs unitaires
+  const d=Math.max(-1,Math.min(1,u[0]*v[0]+u[1]*v[1]+u[2]*v[2])); // produit scalaire borné pour éviter acos(NaN)
+  return Math.acos(d); // angle en radians
+}
+function getHRIR(sofa, azDeg, elDeg, interp){ // calcule le HRIR binaural (L,R) pour une position donnée
+  const flip=$("flip") && $("flip").checked ? -1 : 1; // option utilisateur : miroir gauche/droite (fichiers à azimut horaire)
+  const u = sphToUnit(flip*azDeg, elDeg); // vecteur unitaire cible en convention UI
+  const idx = Array.from({length:sofa.M},(_,i)=>i) // indices 0..M-1 de toutes les mesures
+    .map(i=>({i, d:angularDist(u,sofa.units[i])})) // distance angulaire de chaque mesure à la cible
+    .sort((a,b)=>a.d-b.d) // tri par distance croissante
+    .slice(0,interp?3:1); // garde les 3 plus proches (interpolation) ou la plus proche seule
+  const wsum = idx.reduce((a,x)=>a+1/(x.d+1e-6),0); // somme des poids (inverse de la distance, epsilon anti-division-par-zéro)
+  const offL = sofa.earSwap ? sofa.N : 0, offR = sofa.earSwap ? 0 : sofa.N; // décalages de canal selon l'ordre des oreilles détecté
+  const L=new Float64Array(sofa.N), Rt=new Float64Array(sofa.N); // tampons gauche et droite du HRIR résultat
+  for(const x of idx){ // pour chaque mesure retenue
+    const w=(1/(x.d+1e-6))/wsum; // poids normalisé de la mesure
+    const base=x.i*sofa.R*sofa.N; // offset de la mesure x.i dans le tableau HRIR plat [M][R][N]
+    for(let n=0;n<sofa.N;n++){ // pour chaque échantillon
+      L[n]+=w*sofa.hrir[base+offL+n]; // accumulation pondérée du canal gauche
+      Rt[n]+=w*sofa.hrir[base+offR+n]; // accumulation pondérée du canal droit
+    }
+  }
+  return {L, R:Rt, nearest:idx[0]}; // HRIR interpolé + mesure la plus proche (pour l'affichage)
+}
+
+/* ================= Application ================= */
+const $=id=>document.getElementById(id); // raccourci d'accès aux éléments du DOM
+let sofa=null, audioBuf=null, audioAB=null, ctx=null, src=null, conv=null, gainNode=null, playing=false, rotTimer=null; // état global : fichier SOFA, audio décodé, octets audio conservés (pour redécodage), contexte audio, source, convolveur, gain, lecture en cours, minuteur de rotation
+
+function msg(t,good){ const m=$("msg"); m.textContent=t||""; m.className="msg"+(good?" good":""); } // affiche un message d'état (rouge par défaut, vert si succès)
+
+$("dropSofa").onclick=()=>$("fileSofa").click(); // cliquer la zone SOFA ouvre le sélecteur de fichiers
+$("dropAudio").onclick=()=>$("fileAudio").click(); // cliquer la zone audio ouvre le sélecteur de fichiers
+[["dropSofa","fileSofa"],["dropAudio","fileAudio"]].forEach(([d,f])=>{ // pour chaque couple (zone de dépôt, input fichier)
+  const el=$(d); // élément zone de dépôt
+  el.ondragover=e=>{e.preventDefault(); el.classList.add("over");}; // survol d'un fichier : annule le défaut et surligne la zone
+  el.ondragleave=()=>el.classList.remove("over"); // sortie du survol : retire le surlignage
+  el.ondrop=e=>{e.preventDefault(); el.classList.remove("over"); $(f).files=e.dataTransfer.files; $(f).onchange({target:{files:e.dataTransfer.files}});}; // dépôt : place les fichiers dans l'input et déclenche le même traitement que onchange
+});
+$("fileSofa").onchange=async e=>{ // chargement d'un fichier SOFA
+  const f=e.target.files[0]; if(!f)return; // premier fichier sélectionné (aucun → sortie)
+  msg(""); // efface les erreurs précédentes
+  try{ // parcours protégé
+    sofa=parseSofa(await f.arrayBuffer()); // lit tout le fichier en ArrayBuffer puis le parse
+    $("dropSofa").classList.add("ok"); // marque visuellement la zone comme chargée
+    $("dropSofa").innerHTML=`Fichier SOFA chargé : <b>${f.name}</b>`; // affiche le nom du fichier
+    ["az","el","gain"].forEach(i=>$(i).disabled=false); // active les curseurs de position
+    updateStats(); // rafraîchit le panneau d'informations
+    ensureCtx(); // crée le contexte audio à la fréquence du SOFA
+    buildPad(); // construit le cercle de positionnement interactif
+  }catch(err){ msg("Erreur SOFA : "+err.message); } // toute erreur de parse est affichée
+};
+$("fileAudio").onchange=async e=>{ // chargement d'un fichier audio
+  const f=e.target.files[0]; if(!f)return; // premier fichier sélectionné (aucun → sortie)
+  try{ // parcours protégé
+    ensureCtx(); // contexte audio prêt (à la fréquence cible)
+    audioAB=await f.arrayBuffer(); // octets bruts conservés pour un éventuel redécodage
+    audioBuf=await decodeMono(audioAB); // décodage mono à la fréquence du contexte
+    $("dropAudio").classList.add("ok"); // marque visuellement la zone comme chargée
+    $("dropAudio").innerHTML=`Son chargé : <b>${f.name}</b> (${(audioBuf.duration).toFixed(1)} s)`; // affiche le nom et la durée
+    updateStats(); // rafraîchit le panneau d'informations
+  }catch(err){ msg("Erreur audio : "+err.message); } // erreur de décodage affichée
+};
+function ensureCtx(){ // crée le contexte audio au besoin
+  if(ctx)return; // déjà créé : rien à faire
+  const sel=+$("srSel").value; // fréquence choisie dans le sélecteur (0 = auto)
+  const sr=sel || (sofa?sofa.sr:48000); // cible : choix explicite, sinon celle du SOFA (48 kHz par défaut)
+  try{ ctx=new AudioContext({sampleRate:sr}); } // essai de création à cette fréquence
+  catch{ ctx=new AudioContext(); } // si le navigateur refuse, fréquence par défaut (le HRIR sera resamplé)
+}
+async function decodeMono(ab){ // décode un fichier audio en mono à la fréquence du contexte courant
+  const copy=ab.slice(0); // copie car decodeAudioData détache le tampon passé
+  let b=await ctx.decodeAudioData(copy); // décodage natif resamplé vers la fréquence du contexte
+  if(b.numberOfChannels>1){ // si le son est stéréo ou multicanal
+    const n=b.length, out=ctx.createBuffer(1,n,ctx.sampleRate); // tampon mono de sortie
+    const d=out.getChannelData(0); // canal unique
+    for(let c=0;c<b.numberOfChannels;c++){ const ch=b.getChannelData(c); for(let i=0;i<n;i++) d[i]+=ch[i]/b.numberOfChannels; } // mixage : moyenne de tous les canaux
+    b=out; // le buffer mono remplace l'original
+  }
+  return b; // AudioBuffer mono
+}
+function targetSr(){ // fréquence d'échantillonnage cible courante
+  const sel=+$("srSel").value; // valeur du sélecteur
+  return sel || (sofa?sofa.sr:48000); // explicite, sinon celle du SOFA (48 kHz par défaut)
+}
+function resampleHRIR(a, N, srOut){ // rééchantillonne un HRIR de N échantillons vers srOut, selon la qualité choisie
+  const useSinc = !$("rsq") || $("rsq").value==="sinc"; // option : sinc fenêtré (défaut) ou linéaire
+  return useSinc ? resampleSinc(a, N, srOut) : resampleLinear(a, N, srOut); // dispatch vers la méthode demandée
+}
+function resampleLinear(a, N, srOut){ // rééchantillonnage linéaire : rapide mais atténue mal l'aliasing en décimation
+  const N2=Math.round(N*srOut/sofa.sr); // nouvelle longueur, proportionnelle au rapport des fréquences
+  const o=new Float64Array(N2); // tampon de sortie
+  for(let i=0;i<N2;i++){ // pour chaque échantillon de sortie
+    const t=i*sofa.sr/srOut; // position d'origine correspondante (en échantillons source)
+    const j=Math.floor(t), f=t-j; // indice entier et fraction
+    o[i]=(a[j]||0)*(1-f)+(a[j+1]||0)*f; // interpolation linéaire entre j et j+1 (0 au-delà du fichier)
+  }
+  return o; // coefficients rééchantillonnés
+}
+function resampleSinc(a, N, srOut){ // rééchantillonnage par sinc fenêtré (Blackman) : bande passante plate et anti-aliasing
+  const step=sofa.sr/srOut; // pas en échantillons source par échantillon de sortie
+  const N2=Math.round(N*srOut/sofa.sr); // longueur de sortie, proportionnelle
+  const out=new Float64Array(N2); // tampon de sortie
+  const fc=Math.min(1, srOut/sofa.sr)*0.45; // coupure normalisée : 0,45 × le Nyquist le plus bas (marge de transition)
+  const K=32; // demi-largeur du noyau en échantillons source (65 taps au total)
+  for(let i=0;i<N2;i++){ // pour chaque échantillon de sortie
+    const t=i*step; // position exacte dans la source (sub-échantillon)
+    const j0=Math.floor(t); // échantillon source le plus proche
+    let s=0, wsum=0; // accumulation pondérée et somme des poids (normalisation du noyau)
+    for(let j=j0-K; j<=j0+K; j++){ // pour chaque tap du noyau
+      if(j<0 || j>=N) continue; // hors du signal : le HRIR causal est traité comme nul
+      const d=t-j; // distance du tap au centre
+      const z=fc*d; // argument du sinc
+      const snc = Math.abs(z)<1e-9 ? 1 : Math.sin(Math.PI*z)/(Math.PI*z); // sinc tronqué (1 au centre exact)
+      const w = 0.42 + 0.5*Math.cos(Math.PI*d/K) + 0.08*Math.cos(2*Math.PI*d/K); // fenêtre Blackman : −58 dB de lobes
+      const k = snc*w; // tap final du noyau
+      s += a[j]*k; // contribution du tap
+      wsum += k; // accumulation pour normaliser (corrige la troncature aux bords du HRIR)
+    }
+    out[i] = wsum>1e-12 ? s/wsum : 0; // normalisation par l'énergie du noyau réellement utilisée
+  }
+  return out; // coefficients rééchantillonnés haute qualité
+}
+$("srSel").onchange=async ()=>{ // changement de fréquence d'échantillonnage
+  stop(); // arrêt de toute lecture en cours
+  if(rotTimer){ clearInterval(rotTimer); rotTimer=null; $("rot").checked=false; } // stoppe la rotation automatique
+  if(ctx){ try{await ctx.close();}catch{} ctx=null; conv=null; gainNode=null; src=null; } // ferme l'ancien contexte (sa fréquence est figée)
+  ensureCtx(); // recrée le contexte à la nouvelle fréquence
+  $("srV").textContent = (+$("srSel").value ? ($("srSel").value+" Hz") : "auto"); // étiquette du sélecteur
+  if(audioAB){ // si un fichier audio a déjà été chargé
+    try{ audioBuf=await decodeMono(audioAB); } // on le redécoder à la nouvelle fréquence (les octets sont conservés)
+    catch(err){ msg("Erreur redécodage audio : "+err.message); } // erreur affichée
+  }
+  updateStats(); // rafraîchit le panneau d'informations
+};
+$("rsq").onchange=()=>{ // changement de qualité de rééchantillonnage
+  $("rsqV").textContent = $("rsq").value==="sinc" ? "sinc fenêtré" : "linéaire"; // étiquette du sélecteur
+  if(playing)applyHRIR(); // si lecture en cours : le HRIR est rééchantillonné avec la nouvelle méthode
+  updateStats(); // rafraîchit les informations
+};
+function updateStats(){ // met à jour le panneau d'informations "Rendu"
+  const el=$("stats"); // élément du panneau
+  if(!sofa){ el.textContent="En attente des fichiers…"; return; } // pas encore de SOFA : message d'attente
+  const s=[`SOFA : ${sofa.M} positions × ${sofa.R} oreilles × ${sofa.N} échantillons · ${sofa.sr/1000} kHz`, // ligne 1 : dimensions du jeu
+            `Grille : azimut ${sofa.azMin}°…${sofa.azMax}° · élévation ${sofa.elMin}°…${sofa.elMax}° (convention SOFA)`, // ligne 2 : étendue de la grille
+            `Oreilles : ${sofa.earSwap?"ordre inversé détecté et corrigé via ReceiverPosition":"récepteur 1 = gauche (standard)"}`]; // ligne 3 : ordre des oreilles
+  if(audioBuf){ // si un son est chargé
+    const hr=getHRIR(sofa, +$("az").value, +$("el").value, $("interp").checked); // HRIR courant (pour l'écart angulaire)
+    s.push(`Audio : ${(audioBuf.duration).toFixed(1)} s @ ${ctx.sampleRate/1000} kHz (mono)`); // ligne audio : durée et fréquence effective
+    s.push(`Position mesurée la plus proche : ${hr.nearest.d.toFixed(1)}° d'écart angulaire`); // écart entre la cible et la mesure la plus proche
+  } else s.push("Audio : en attente…"); // sinon : attente du son
+  el.innerHTML=s.join("<br>"); // affichage avec retours à la ligne
+}
+
+/* ---- cercle de position (vue de dessus) ---- */
+function buildPad(){ // construit le canevas interactif de placement de la source
+  const c=$("pad"), g=c.getContext("2d"); // canevas et contexte de dessin 2D
+  function draw(){ // redessine le canevas complet
+    const W=c.width, H=c.height, cx=W/2, cy=H/2, r=Math.min(W,H)/2-30; // dimensions, centre et rayon du cercle
+    g.clearRect(0,0,W,H); // efface le canevas
+    g.strokeStyle="#232c3d"; g.lineWidth=2; // style du cercle principal
+    g.beginPath(); g.arc(cx,cy,r,0,7); g.stroke(); // cercle extérieur (horizon)
+    g.beginPath(); g.arc(cx,cy,r*Math.cos(deg2rad(+$("el").value)),0,7); g.setLineDash([4,5]); g.stroke(); g.setLineDash([]); // pointillés : rayon apparent à l'élévation courante
+    g.fillStyle="#67748c"; g.font="16px Inter,sans-serif"; g.textAlign="center"; // style des étiquettes
+    g.fillText("avant",cx,cy-r-8); g.fillText("arrière",cx,cy+r+22); // étiquettes avant/arrière
+    g.fillText("droite",cx+r+4,cy+5); g.fillText("gauche",cx-r-4,cy+5); // étiquettes gauche/droite
+    if(sofa){ // si un jeu SOFA est chargé
+      g.fillStyle="#3d4a63"; // couleur des points mesurés
+      for(const u of sofa.units){ // pour chaque position mesurée
+        const px=cx+r*u[1], py=cy-r*u[0]; // projection vue de dessus (u[1]=droite, u[0]=avant)
+        g.beginPath(); g.arc(px,py,2.5,0,7); g.fill(); // trace le point
+      }
+    }
+    const ut=sphToUnit(+$("az").value, +$("el").value); // vecteur de la position cible
+    const px=cx+r*ut[1], py=cy-r*ut[0]; // coordonnées écran de la cible
+    g.fillStyle="#6ea8ff"; g.beginPath(); g.arc(px,py,9,0,7); g.fill(); // disque bleu de la source
+    g.strokeStyle="#6ea8ff"; g.lineWidth=2; g.beginPath(); g.moveTo(cx,cy); g.lineTo(px,py); g.stroke(); // segment centre → source
+  }
+  function pick(e){ // convertit un pointeur du canevas en azimut
+    const b=c.getBoundingClientRect(); // rectangle du canevas à l'écran
+    const x=(e.clientX-b.left)*(c.width/b.width)-c.width/2; // abscisse relative au centre (mise à l'échelle)
+    const y=(e.clientY-b.top)*(c.height/b.height)-c.height/2; // ordonnée relative au centre (mise à l'échelle)
+    let az=Math.atan2(x,-y)*180/Math.PI; // azimut en degrés (0 = haut de l'écran = avant, horaire = droite)
+    $("az").value=Math.round(Math.max(-180,Math.min(180,az))); // borne à [-180,180] et applique au curseur
+    sync(); // rafraîchit l'interface
+  }
+  let drag=false; // état du glissement
+  c.onpointerdown=e=>{ if(!sofa)return; drag=true; pick(e); }; // appui : commence le glissement et place la source
+  c.onpointermove=e=>{ if(drag)pick(e); }; // mouvement : suit le pointeur si glissement actif
+  c.onpointerup=()=>drag=false; // relâchement : fin du glissement
+  c._draw=draw; draw(); // expose la fonction de dessin puis dessine immédiatement
+}
+function sync(){ // synchronise l'ensemble de l'UI après un changement de position ou de gain
+  $("azV").textContent=$("az").value+"°"; // étiquette d'azimut
+  $("elV").textContent=$("el").value+"°"; // étiquette d'élévation
+  $("gV").textContent=$("gain").value+" dB"; // étiquette de gain
+  if($("pad")._draw)$("pad")._draw(); // redessine le cercle
+  if(playing)applyHRIR(); // si lecture en cours : applique le nouveau HRIR à chaud
+  updateStats(); // rafraîchit les informations
+}
+$("az").oninput=sync; // curseur azimut → synchronisation
+$("el").oninput=sync; // curseur élévation → synchronisation
+$("gain").oninput=sync; // curseur gain → synchronisation
+$("interp").onchange=()=>{ if(playing)applyHRIR(); updateStats(); }; // bascule d'interpolation : HRIR et stats
+$("flip").onchange=()=>{ if(playing)applyHRIR(); updateStats(); }; // bascule miroir : HRIR et stats
+
+/* ---- HRIR → convolveur Web Audio ---- */
+function hrirBuffer(sr){ // construit l'AudioBuffer stéréo du HRIR courant (à la fréquence sr du contexte)
+  const hr=getHRIR(sofa, +$("az").value, +$("el").value, $("interp").checked); // HRIR de la position courante
+  let L=hr.L, R=hr.R, N=sofa.N; // canaux et longueur
+  if(sr!==sofa.sr){ // si la fréquence du contexte diffère de celle du SOFA
+    L=resampleHRIR(hr.L, sofa.N, sr); // canal gauche rééchantillonné (linéaire ou sinc selon l'option)
+    R=resampleHRIR(hr.R, sofa.N, sr); // canal droit rééchantillonné
+    N=L.length; // nouvelle longueur effective
+  }
+  const buf=ctx.createBuffer(2,N,sr); // AudioBuffer stéréo
+  const Lf=new Float32Array(N), Rf=new Float32Array(N); // tampons Float32
+  let e=0; for(let i=0;i<N;i++){ Lf[i]=L[i]; Rf[i]=R[i]; e+=L[i]*L[i]+R[i]*R[i]; } // copie et calcul de l'énergie totale L+R
+  const gn=1/Math.sqrt(Math.max(e,1e-12)); // gain de normalisation (énergie unité, préserve l'ILD entre oreilles)
+  for(let i=0;i<N;i++){ Lf[i]*=gn; Rf[i]*=gn; } // applique la normalisation aux deux canaux
+  buf.copyToChannel(Lf,0); // canal 0 = gauche
+  buf.copyToChannel(Rf,1); // canal 1 = droite
+  return {buf}; // AudioBuffer prêt pour le ConvolverNode
+}
+function applyHRIR(){ // remplace à chaud le noyau de convolution
+  if(!sofa)return; // rien à faire sans SOFA
+  const {buf}=hrirBuffer(ctx.sampleRate); // buffer du HRIR courant
+  conv.buffer=buf; // réaffectation : le convolveur bascule sur le nouveau filtre
+}
+function startGraph(){ // construit le graphe audio source → convolveur → gain → sortie
+  conv=ctx.createConvolver(); conv.normalize=false; // convolveur sans normalisation interne (on gère nous-mêmes)
+  gainNode=ctx.createGain(); // nœud de gain utilisateur
+  conv.connect(gainNode).connect(ctx.destination); // chaînage des nœuds
+  applyHRIR(); // installe le HRIR courant dans le convolveur
+  gainNode.gain.value=0.5*Math.pow(10,(+$("gain").value)/20); // gain : -6 dB de sécurité + curseur
+}
+$("play").onclick=async ()=>{ // bouton lecture/stop
+  if(!sofa||!audioBuf)return; // il faut un SOFA et un son
+  if(playing){ stop(); return; } // déjà en lecture → on s'arrête
+  await ctx.resume(); // reprise du contexte audio (autoplay policy)
+  startGraph(); // construction du graphe
+  src=ctx.createBufferSource(); src.buffer=audioBuf; src.loop=true; src.connect(conv); // source en boucle connectée au convolveur
+  src.start(); // démarrage de la lecture
+  playing=true; $("play").textContent="⏸ Stop"; // état et libellé du bouton
+  updateStats(); // rafraîchit les informations
+};
+function stop(){ // arrêt propre de la lecture
+  if(src){ try{src.stop();}catch{} src=null; } // arrête la source si elle existe
+  playing=false; $("play").textContent="▶ Lecture"; // état et libellé du bouton
+}
+$("rot").onchange=e=>{ // bascule de rotation automatique
+  if(rotTimer){ clearInterval(rotTimer); rotTimer=null; } // stoppe tout minuteur existant
+  if(e.target.checked && sofa){ // si activé (et SOFA chargé)
+    rotTimer=setInterval(()=>{ const v=+$("az").value+2; $("az").value=v>180?v-360:v; sync(); },100); // +2° toutes les 100 ms, avec bouclage à ±180°
+  }
+};
+$("gain").oninput=()=>{ $("gV").textContent=$("gain").value+" dB"; if(gainNode)gainNode.gain.value=0.5*Math.pow(10,(+$("gain").value)/20); }; // gain ajusté à chaud pendant la lecture
+
+/* ---- export CSV : tous les coefficients HRIR, valeurs hexadécimales ---- */
+$("csv").onclick=()=>{ // bouton d'export CSV complet
+  if(!sofa)return; // il faut un SOFA
+  const tmp=new DataView(new ArrayBuffer(4)); // tampon de conversion float32 → entier
+  const f2hex=(v)=>{ tmp.setFloat32(0,v,false); return tmp.getUint32(0,false).toString(16).padStart(8,"0"); }; // encode un flottant en hexadécimal IEEE-754 (ex. 3f800000 = 1.0)
+  const {M,N,R}=sofa; // raccourcis de dimensions
+  const srOut=targetSr(); // fréquence d'échantillonnage cible (sélecteur)
+  const resampled = srOut!==sofa.sr; // vrai si les coefficients doivent être rééchantillonnés
+  const Nc = resampled ? Math.round(N*srOut/sofa.sr) : N; // nombre de coefficients par canal après rééchantillonnage
+  const cols=[]; // entêtes de colonnes de coefficients
+  for(let n=0;n<Nc;n++)cols.push(`L${n}`); // colonnes du canal gauche
+  for(let n=0;n<Nc;n++)cols.push(`R${n}`); // colonnes du canal droit
+  const lines=[ // lignes de métadonnées (commentaires) + ligne d'en-tête
+    "# Export complet des HRIR du fichier SOFA", // titre
+    `# positions: ${sofa.M} × ${sofa.R} canaux × ${Nc} echantillons, ${srOut} Hz${resampled?` (reeschantillonnes depuis ${sofa.sr} Hz, ${$("rsq")&&$("rsq").value==="linear"?"interpolation lineaire":"sinc fenetre (Blackman, 65 taps)"}`:""}`, // dimensions et fréquence
+    "# valeurs: float32 IEEE-754 big-endian en hexadecimal (ex. 3f800000 = 1.0)", // format des valeurs
+    "# coordonnees: azimut/élévation en degres, convention SOFA (azimut antihoraire, 90=gauche)", // convention des coordonnées
+    `# canaux: recepteur 1 = ${sofa.earSwap?"droite (fichier inverse)":"gauche"}, recepteur 2 = ${sofa.earSwap?"gauche":"droite"}`, // ordre réel des oreilles
+    "m,azimut_deg,elevation_deg,"+cols.join(",") // ligne d'en-tête CSV
+  ];
+  for(let m=0;m<M;m++){ // pour chaque position mesurée
+    const base=m*R*N; // offset de la mesure m dans le tableau plat [M][R][N]
+    const row=[m, sofa.azs[m], sofa.els[m]]; // colonnes : indice, azimut, élévation
+    for(let r=0;r<R;r++){ // pour chaque canal (oreille)
+      const chRaw=new Float64Array(N); // tampon du canal brut
+      for(let n=0;n<N;n++) chRaw[n]=sofa.hrir[base+r*N+n]; // extraction du canal
+      const ch = resampled ? resampleHRIR(chRaw, N, srOut) : chRaw; // coefficients rééchantillonnés (ou bruts)
+      for(let n=0;n<ch.length;n++) row.push(f2hex(ch[n])); // ajout des valeurs en hexadécimal
+    }
+    lines.push(row.join(",")); // ajout de la ligne CSV
+  }
+  const blob=new Blob([lines.join("\n")],{type:"text/csv"}); // assemblage du fichier texte
+  const a=document.createElement("a"); // lien de téléchargement invisible
+  a.href=URL.createObjectURL(blob); // objet-URL du blob
+  a.download=`hrir_complet_${M}positions_${srOut}Hz_hex.csv`; // nom du fichier (fréquence effective incluse)
+  a.click(); // déclenche le téléchargement
+  URL.revokeObjectURL(a.href); // libère la mémoire de l'objet-URL
+  msg(`Export CSV : ${M} positions × ${2*Nc} coefficients hexadécimaux${resampled?` rééchantillonnés à ${srOut} Hz`:""}.`,true); // confirmation
+};
+
+/* ---- export WAV (rendu hors ligne) ---- */
+$("export").onclick=async ()=>{ // bouton d'export du rendu spatialisé
+  if(!sofa||!audioBuf)return; // il faut un SOFA et un son
+  msg("Rendu en cours…"); // message d'attente
+  const sr=ctx.sampleRate; // fréquence du rendu
+  const off=new OfflineAudioContext(2, Math.ceil(audioBuf.length+sofa.N), sr); // contexte hors ligne stéréo (durée + queue de convolution)
+  const c2=off.createConvolver(); c2.normalize=false; // convolveur hors ligne, sans normalisation interne
+  const {buf}=hrirBuffer(sr); // HRIR courant en AudioBuffer
+  c2.buffer=buf; // installation du noyau
+  const g2=off.createGain(); g2.gain.value=0.5*Math.pow(10,(+$("gain").value)/20); // gain utilisateur reproduit
+  const s2=off.createBufferSource(); s2.buffer=audioBuf; // source mono
+  s2.connect(c2).connect(g2).connect(off.destination); s2.start(); // graphe et démarrage
+  const rendered=await off.startRendering(); // rendu synchrone du fichier complet
+  let peak=0; for(let ch=0;ch<2;ch++){ const d=rendered.getChannelData(ch); for(let i=0;i<d.length;i++) peak=Math.max(peak,Math.abs(d[i])); } // recherche du pic maximal
+  const scale=peak>0?0.891/peak:1; // échelle de normalisation à −1 dBFS (0.891 = 10^(-1/20))
+  const n=rendered.length, out=new DataView(new ArrayBuffer(44+n*2*2)); // tampon WAV : 44 octets d'en-tête + n échantillons stéréo 16 bits
+  const ws=(o,s)=>{ for(let i=0;i<s.length;i++) out.setUint8(o+i,s.charCodeAt(i)); }; // écrit une chaîne ASCII dans l'en-tête
+  ws(0,"RIFF"); out.setUint32(4,36+n*4,true); ws(8,"WAVEfmt "); out.setUint32(16,16,true); // bloc RIFF/WAVE + taille
+  out.setUint16(20,1,true); out.setUint16(22,2,true); out.setUint32(24,sr,true); // PCM, 2 canaux, fréquence
+  out.setUint32(28,sr*4,true); out.setUint16(32,4,true); out.setUint16(34,16,true); // octets/s, alignement, 16 bits
+  ws(36,"data"); out.setUint32(40,n*4,true); // bloc data + taille
+  let o=44; // début des échantillons
+  for(let ch=0;ch<2;ch++){ const d=rendered.getChannelData(ch); for(let i=0;i<n;i++){ out.setInt16(o+i*4+ch*2, Math.max(-1,Math.min(1,d[i]*scale))*32767, true); } } // écriture des échantillons, clampés et normalisés
+  const blob=new Blob([out],{type:"audio/wav"}); // blob WAV
+  const a=document.createElement("a"); // lien de téléchargement
+  a.href=URL.createObjectURL(blob); // objet-URL
+  a.download=`spatialise_az${$("az").value}_el${$("el").value}.wav`; a.click(); // nom avec position + téléchargement
+  URL.revokeObjectURL(a.href); // libération mémoire
+  msg(`WAV exporté (${n/sr} s, normalisé à −1 dBFS).`,true); // confirmation
+};
+function refreshButtons(){ // active/désactive les boutons selon l'état
+  const ok=sofa&&audioBuf; // lecture et export WAV : nécessitent les deux fichiers
+  $("play").disabled=!ok; $("export").disabled=!ok; $("rot").disabled=!sofa; // lecture, WAV, rotation
+  $("csv").disabled=!sofa; // l'export CSV ne nécessite que le SOFA
+}
+const _origUpdate=updateStats; // conserve la fonction d'origine
+updateStats=function(){ _origUpdate(); refreshButtons(); }; // chaque mise à jour des stats rafraîchit aussi les boutons
+</script>
+</body>
+</html>
