@@ -1,2 +1,2 @@
-1.0
-version 1 voie testee le 27 octobre, écoute validée, génération csv validée
+2.0
+version 2 : 3 sources wav en parallèle, codage coefficients float32/float16, version affichée — 29/10/2026
