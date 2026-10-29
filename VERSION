@@ -1,2 +1,2 @@
-2.0
-version 2 : 3 sources wav en parallèle, codage coefficients float32/float16, version affichée — 29/10/2026
+2.1
+version 2.1 : rotation automatique indépendante par source — 29/10/2026
